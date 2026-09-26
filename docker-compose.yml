@@ -5,8 +5,12 @@ services:
     container_name: judge-calibration
     ports:
       - "${APP_PORT:-8000}:8000"
+    environment:
+      - CALIB_BACKUP_DIR=/backups
     volumes:
       - calibration-data:/data
+      # 备份目录挂载到宿主机，容器重建/删除后备份仍在。
+      - ./backups:/backups
     restart: unless-stopped
 
 volumes:

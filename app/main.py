@@ -40,6 +40,7 @@ from .scoring import (
     compare_contestants,
     stability_experiment,
 )
+from .service_lock import ServiceLock, lock_path
 from .weight_analysis import WeightValidationError, weight_threshold_analysis
 
 SAMPLE_PATH = os.environ.get(
@@ -50,8 +51,18 @@ SAMPLE_PATH = os.environ.get(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    db.init_db()
-    yield
+    # 持有数据目录互斥锁直至关停：运行期间恢复工具会拒绝执行；
+    # 锁被持有（另一实例或恢复进行中）时拒绝启动，避免并发写库。
+    lock = ServiceLock()
+    if not lock.acquire():
+        raise RuntimeError(
+            f"数据目录锁 {lock_path()} 被持有：已有服务实例在运行或恢复操作进行中，拒绝启动。"
+        )
+    try:
+        db.init_db()
+        yield
+    finally:
+        lock.release()
 
 
 app = FastAPI(title="多评委评分校准", version="1.0.0", lifespan=lifespan)
