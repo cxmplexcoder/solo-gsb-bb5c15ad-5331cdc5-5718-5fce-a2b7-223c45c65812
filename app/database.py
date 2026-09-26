@@ -8,7 +8,15 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Any, Iterator, Mapping, Sequence
 
-DEFAULT_DATA_DIR = os.environ.get("CALIB_DATA_DIR", "/data")
+
+def data_dir() -> str:
+    """当前数据目录（每次读取环境变量，便于测试在导入后切换 CALIB_DATA_DIR）。"""
+    return os.environ.get("CALIB_DATA_DIR", "/data")
+
+
+def db_path() -> str:
+    return os.path.join(data_dir(), "calibration.db")
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
@@ -77,13 +85,9 @@ class NotFoundError(LookupError):
     pass
 
 
-def db_path() -> str:
-    return os.path.join(DEFAULT_DATA_DIR, "calibration.db")
-
-
 @contextmanager
 def get_conn() -> Iterator[sqlite3.Connection]:
-    os.makedirs(DEFAULT_DATA_DIR, exist_ok=True)
+    os.makedirs(data_dir(), exist_ok=True)
     conn = sqlite3.connect(db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")

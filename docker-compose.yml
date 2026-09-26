@@ -2,11 +2,17 @@ services:
   calibration:
     build: .
     image: judge-calibration:latest
-    container_name: judge-calibration
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:
+      # 数据库目录：命名卷。升级镜像不丢数据，仅 down -v 才删除。
       - calibration-data:/data
+      # 备份目录：绑定挂载到宿主机 ./backups，备份文件可直接在宿主机取用/归档。
+      - ./backups:/backups
+    environment:
+      # 容器内固定路径（与 Dockerfile 默认一致，列出以便自定义时对照）。
+      CALIB_DATA_DIR: /data
+      CALIB_BACKUP_DIR: /backups
     restart: unless-stopped
 
 volumes:

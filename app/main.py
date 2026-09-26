@@ -15,6 +15,7 @@ from .backfill import BackfillValidationError, plan_backfill
 from .common_judge import common_judge_comparison
 from .csv_io import CSVParseError, build_audit_csv, parse_scores
 from .judge_offsets import judge_offset_diagnosis
+from .locking import acquire_service_lock, release_service_lock
 from .merge import (
     STATUS_CHANGED,
     STATUS_LABELS as MERGE_STATUS_LABELS,
@@ -50,8 +51,14 @@ SAMPLE_PATH = os.environ.get(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    db.init_db()
-    yield
+    # 先取得与恢复工具互斥的文件锁并在整个存活期持有：
+    # 恢复工具持锁期间服务会阻塞在这一步而不会启动，杜绝「检查后服务启动」竞态。
+    lock_fd = acquire_service_lock(db.data_dir())
+    try:
+        db.init_db()
+        yield
+    finally:
+        release_service_lock(lock_fd)
 
 
 app = FastAPI(title="多评委评分校准", version="1.0.0", lifespan=lifespan)
